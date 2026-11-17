@@ -14,6 +14,7 @@ const authController =
   require('../controllers/authController');
 
 const {
+ const {
   register,
   login,
   getMe,
@@ -21,7 +22,10 @@ const {
   changePassword,
   logout,
   forgotPassword,
-  resetPassword
+  resetPassword,
+  sendLoginOtp,
+  verifyLoginOtp
+} = authController;
 } = authController;
 
 const router = express.Router();
