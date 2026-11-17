@@ -1986,7 +1986,381 @@ exports.resetPassword = async (req, res) => {
         error: 'Invalid or expired reset token'
       });
     }
+// =====================================================
+// SEND LOGIN OTP
+// POST /api/auth/send-login-otp
+// =====================================================
 
+exports.sendLoginOtp = async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    if (!email || typeof email !== 'string') {
+      return res.status(400).json({
+        success: false,
+        error: 'Please provide a valid email address'
+      });
+    }
+
+    const normalizedEmail = email.trim().toLowerCase();
+
+    const user = await User.findOne({
+      email: normalizedEmail
+    });
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        error: 'No registered account found with this email'
+      });
+    }
+
+    if (user.isBlocked) {
+      return res.status(403).json({
+        success: false,
+        error: 'Your account has been blocked. Please contact administrator.'
+      });
+    }
+
+    if (!user.isActive) {
+      return res.status(403).json({
+        success: false,
+        error: 'Your account is inactive. Please contact administrator.'
+      });
+    }
+
+    // Prevent repeated OTP requests within 60 seconds
+    const now = Date.now();
+
+    if (
+      user.loginOtpSentAt &&
+      now - new Date(user.loginOtpSentAt).getTime() < 60 * 1000
+    ) {
+      return res.status(429).json({
+        success: false,
+        error: 'Please wait 60 seconds before requesting another OTP'
+      });
+    }
+
+    const emailUser = process.env.EMAIL_USER;
+    const emailPass = process.env.EMAIL_PASS;
+
+    if (!emailUser || !emailPass) {
+      console.error('EMAIL_USER or EMAIL_PASS is missing');
+
+      return res.status(500).json({
+        success: false,
+        error: 'Email configuration is missing on server'
+      });
+    }
+
+    const smtpHost = process.env.EMAIL_HOST || 'smtp.gmail.com';
+    const smtpPort = Number(process.env.EMAIL_PORT) || 587;
+
+    if (![465, 587].includes(smtpPort)) {
+      return res.status(500).json({
+        success: false,
+        error: 'Invalid SMTP port configuration'
+      });
+    }
+
+    const transporter = nodemailer.createTransport({
+      host: smtpHost,
+      port: smtpPort,
+      secure: smtpPort === 465,
+      auth: {
+        user: emailUser,
+        pass: emailPass
+      },
+      connectionTimeout: 15000,
+      greetingTimeout: 15000,
+      socketTimeout: 20000
+    });
+
+    // Generate a 6-digit OTP
+    const otp = crypto.randomInt(100000, 1000000).toString();
+
+    // Store only the hashed OTP
+    const otpHash = crypto
+      .createHash('sha256')
+      .update(otp)
+      .digest('hex');
+
+    const otpExpiry = new Date(Date.now() + 5 * 60 * 1000);
+
+    const safeName = escapeHtml(user.name || 'User');
+
+    const mailOptions = {
+      from: {
+        name: 'Vani Systems',
+        address: emailUser
+      },
+
+      to: user.email,
+
+      subject: 'Your Vani Login OTP',
+
+      text: `
+Hello ${user.name || 'User'},
+
+Your Vani login OTP is: ${otp}
+
+This OTP is valid for 5 minutes.
+
+Do not share this OTP with anyone.
+
+Vani Systems Team
+      `,
+
+      html: `
+        <div style="
+          max-width:550px;
+          margin:20px auto;
+          padding:25px;
+          font-family:Arial,sans-serif;
+          border:1px solid #e5e7eb;
+          border-radius:10px;
+        ">
+          <h2 style="color:#102a43;">Vani Login Verification</h2>
+
+          <p>Hello ${safeName},</p>
+
+          <p>Your one-time password for Vani login is:</p>
+
+          <div style="
+            background:#f1f5f9;
+            padding:18px;
+            text-align:center;
+            font-size:32px;
+            font-weight:bold;
+            letter-spacing:8px;
+            color:#0759d6;
+            border-radius:8px;
+          ">
+            ${otp}
+          </div>
+
+          <p><strong>This OTP expires in 5 minutes.</strong></p>
+
+          <p>Do not share this OTP with anyone.</p>
+
+          <p>Regards,<br>Vani Systems Team</p>
+        </div>
+      `
+    };
+
+    // Send email before saving OTP
+    const mailResult = await transporter.sendMail(mailOptions);
+
+    const acceptedEmails = (mailResult.accepted || []).map(
+      item => String(item.address || item).toLowerCase()
+    );
+
+    const rejectedEmails = (mailResult.rejected || []).map(
+      item => String(item.address || item).toLowerCase()
+    );
+
+    if (
+      !acceptedEmails.includes(user.email.toLowerCase()) ||
+      rejectedEmails.includes(user.email.toLowerCase())
+    ) {
+      return res.status(500).json({
+        success: false,
+        error: 'OTP email was not accepted by the email server'
+      });
+    }
+
+    // Save OTP only after email server accepts it
+    user.loginOtpHash = otpHash;
+    user.loginOtpExpiry = otpExpiry;
+    user.loginOtpAttempts = 0;
+    user.loginOtpSentAt = new Date();
+
+    await user.save({
+      validateBeforeSave: false
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: 'Login OTP sent successfully to your registered email'
+    });
+
+  } catch (error) {
+    console.error('Send login OTP error:', error);
+
+    return res.status(500).json({
+      success: false,
+      error: 'Unable to send login OTP. Please try again later.'
+    });
+  }
+};
+
+
+// =====================================================
+// VERIFY LOGIN OTP
+// POST /api/auth/verify-login-otp
+// =====================================================
+
+exports.verifyLoginOtp = async (req, res) => {
+  try {
+    const { email, otp } = req.body;
+
+    if (
+      !email ||
+      typeof email !== 'string' ||
+      !otp ||
+      !/^\d{6}$/.test(String(otp))
+    ) {
+      return res.status(400).json({
+        success: false,
+        error: 'Valid email and 6-digit OTP are required'
+      });
+    }
+
+    const normalizedEmail = email.trim().toLowerCase();
+
+    const user = await User.findOne({
+      email: normalizedEmail
+    }).select(
+      '+loginOtpHash +loginOtpExpiry +loginOtpAttempts'
+    );
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        error: 'User not found'
+      });
+    }
+
+    if (user.isBlocked) {
+      return res.status(403).json({
+        success: false,
+        error: 'Your account has been blocked. Please contact administrator.'
+      });
+    }
+
+    if (!user.isActive) {
+      return res.status(403).json({
+        success: false,
+        error: 'Your account is inactive. Please contact administrator.'
+      });
+    }
+
+    if (!user.loginOtpHash || !user.loginOtpExpiry) {
+      return res.status(400).json({
+        success: false,
+        error: 'Please request a new login OTP'
+      });
+    }
+
+    if (new Date(user.loginOtpExpiry).getTime() <= Date.now()) {
+      user.loginOtpHash = null;
+      user.loginOtpExpiry = null;
+      user.loginOtpAttempts = 0;
+
+      await user.save({
+        validateBeforeSave: false
+      });
+
+      return res.status(400).json({
+        success: false,
+        error: 'OTP has expired. Please request a new OTP'
+      });
+    }
+
+    if ((user.loginOtpAttempts || 0) >= 5) {
+      user.loginOtpHash = null;
+      user.loginOtpExpiry = null;
+      user.loginOtpAttempts = 0;
+
+      await user.save({
+        validateBeforeSave: false
+      });
+
+      return res.status(429).json({
+        success: false,
+        error: 'Too many incorrect OTP attempts. Please request a new OTP'
+      });
+    }
+
+    const submittedOtpHash = crypto
+      .createHash('sha256')
+      .update(String(otp))
+      .digest('hex');
+
+    const storedHash = Buffer.from(user.loginOtpHash, 'hex');
+    const submittedHash = Buffer.from(submittedOtpHash, 'hex');
+
+    const isOtpMatch =
+      storedHash.length === submittedHash.length &&
+      crypto.timingSafeEqual(storedHash, submittedHash);
+
+    if (!isOtpMatch) {
+      user.loginOtpAttempts = (user.loginOtpAttempts || 0) + 1;
+
+      await user.save({
+        validateBeforeSave: false
+      });
+
+      return res.status(401).json({
+        success: false,
+        error: 'Incorrect OTP'
+      });
+    }
+
+    // Update login information
+    user.lastLogin = new Date();
+
+    user.loginHistory.push({
+      date: new Date(),
+      ipAddress:
+        req.ip ||
+        req.headers['x-forwarded-for'] ||
+        '',
+      userAgent: req.get('user-agent') || ''
+    });
+
+    // OTP is one-time use: clear it after successful verification
+    user.loginOtpHash = null;
+    user.loginOtpExpiry = null;
+    user.loginOtpAttempts = 0;
+    user.loginOtpSentAt = null;
+
+    await user.save({
+      validateBeforeSave: false
+    });
+
+    // Generate the same tokens as normal password login
+    const token = generateToken(user._id.toString());
+
+    const refreshToken = generateRefreshToken(
+      user._id.toString()
+    );
+
+    return res.status(200).json({
+      success: true,
+      message: 'OTP verified. Login successful',
+      data: {
+        user: {
+          id: user._id.toString(),
+          name: user.name,
+          email: user.email,
+          role: user.role
+        },
+        token,
+        refreshToken
+      }
+    });
+
+  } catch (error) {
+    console.error('Verify login OTP error:', error);
+
+    return res.status(500).json({
+      success: false,
+      error: 'Server error while verifying login OTP'
+    });
+  }
+};
     // UPDATE PASSWORD
 
     user.password = newPassword;
