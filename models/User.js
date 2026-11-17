@@ -105,6 +105,33 @@ const userSchema = new mongoose.Schema(
 |--------------------------------------------------------------------------
 */
 
+    // EMAIL OTP LOGIN
+    loginOtpHash: {
+      type: String,
+      default: null,
+      select: false
+    },
+
+    loginOtpExpiry: {
+      type: Date,
+      default: null,
+      select: false
+    },
+
+    loginOtpAttempts: {
+      type: Number,
+      default: 0,
+      select: false
+    },
+
+    loginOtpSentAt: {
+      type: Date,
+      default: null,
+      select: false
+    },
+
+
+
 userSchema.pre('save', async function () {
   if (!this.isModified('password')) {
     return;
