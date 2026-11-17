@@ -415,4 +415,80 @@ router.post(
   }
 );
 
+/*
+|--------------------------------------------------------------------------
+| SEND LOGIN OTP
+|--------------------------------------------------------------------------
+| POST /api/auth/send-login-otp
+| Public
+|--------------------------------------------------------------------------
+*/
+
+router.post(
+  '/send-login-otp',
+  [
+    body('email')
+      .trim()
+      .notEmpty()
+      .withMessage('Email is required')
+      .isEmail()
+      .withMessage('Please provide a valid email')
+  ],
+  (req, res) => {
+    const errors = validationResult(req);
+
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        success: false,
+        errors: errors.array()
+      });
+    }
+
+    return sendLoginOtp(req, res);
+  }
+);
+
+
+/*
+|--------------------------------------------------------------------------
+| VERIFY LOGIN OTP
+|--------------------------------------------------------------------------
+| POST /api/auth/verify-login-otp
+| Public
+|--------------------------------------------------------------------------
+*/
+
+router.post(
+  '/verify-login-otp',
+  [
+    body('email')
+      .trim()
+      .notEmpty()
+      .withMessage('Email is required')
+      .isEmail()
+      .withMessage('Please provide a valid email'),
+
+    body('otp')
+      .notEmpty()
+      .withMessage('OTP is required')
+      .isLength({ min: 6, max: 6 })
+      .isNumeric()
+      .withMessage('OTP must be 6 digits')
+  ],
+  (req, res) => {
+    const errors = validationResult(req);
+
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        success: false,
+        errors: errors.array()
+      });
+    }
+
+    return verifyLoginOtp(req, res);
+  }
+);
+
+
+
 module.exports = router;
