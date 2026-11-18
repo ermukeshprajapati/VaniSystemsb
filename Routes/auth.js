@@ -16,6 +16,7 @@ const authController =
 const {
   register,
   login,
+  adminLogin, // ADD THIS
   getMe,
   updateProfile,
   changePassword,
