@@ -159,6 +159,46 @@ router.post(
   }
 );
 
+
+
+/*
+|--------------------------------------------------------------------------
+| ADMIN LOGIN
+|--------------------------------------------------------------------------
+| POST /api/auth/admin-login
+| Public
+|--------------------------------------------------------------------------
+*/
+
+router.post(
+  '/admin-login',
+  [
+    body('email')
+      .trim()
+      .notEmpty()
+      .withMessage('Email is required')
+      .isEmail()
+      .withMessage('Please provide a valid email')
+      .normalizeEmail(),
+
+    body('password')
+      .notEmpty()
+      .withMessage('Password is required')
+  ],
+  (req, res) => {
+    const errors = validationResult(req);
+
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        success: false,
+        errors: errors.array()
+      });
+    }
+
+    return adminLogin(req, res);
+  }
+);
+
 /*
 |--------------------------------------------------------------------------
 | GET CURRENT USER
