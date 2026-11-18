@@ -1179,4 +1179,103 @@ exports.verifyLoginOtp = async (req, res) => {
 
 
 
+// =====================================================
+// ADMIN LOGIN
+// POST /api/auth/admin-login
+// =====================================================
+
+exports.adminLogin = async (req, res) => {
+  try {
+    const { email, password } = req.body;
+
+    if (!email || !password) {
+      return res.status(400).json({
+        success: false,
+        error: 'Email and password are required'
+      });
+    }
+
+    const normalizedEmail = email.trim().toLowerCase();
+
+    const admin = await User.findOne({
+      email: normalizedEmail,
+      role: 'admin'
+    }).select('+password');
+
+    if (!admin) {
+      return res.status(401).json({
+        success: false,
+        error: 'Invalid admin credentials'
+      });
+    }
+
+    if (admin.isBlocked) {
+      return res.status(403).json({
+        success: false,
+        error: 'Admin account has been blocked'
+      });
+    }
+
+    if (!admin.isActive) {
+      return res.status(403).json({
+        success: false,
+        error: 'Admin account is inactive'
+      });
+    }
+
+    const isPasswordMatch = await admin.matchPassword(password);
+
+    if (!isPasswordMatch) {
+      return res.status(401).json({
+        success: false,
+        error: 'Invalid admin credentials'
+      });
+    }
+
+    admin.lastLogin = new Date();
+
+    admin.loginHistory.push({
+      date: new Date(),
+      ipAddress:
+        req.ip ||
+        req.headers['x-forwarded-for'] ||
+        '',
+      userAgent: req.get('user-agent') || ''
+    });
+
+    await admin.save();
+
+    const token = generateToken(admin._id.toString());
+
+    const refreshToken = generateRefreshToken(
+      admin._id.toString()
+    );
+
+    return res.status(200).json({
+      success: true,
+      message: 'Admin login successful',
+      data: {
+        user: {
+          id: admin._id.toString(),
+          name: admin.name,
+          email: admin.email,
+          role: admin.role
+        },
+        token,
+        refreshToken
+      }
+    });
+
+  } catch (error) {
+    console.error('Admin login error:', error);
+
+    return res.status(500).json({
+      success: false,
+      error: 'Server error'
+    });
+  }
+};
+
+
+
 
