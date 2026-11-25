@@ -843,26 +843,42 @@ const sendOrderEmail = async (
     // ORDER STATUS UPDATE
     // ------------------------------------------
 
-    else if (eventType === 'status') {
-      heading = 'Order Status Updated';
-      message = `Your order status has been updated to ${orderStatus}.`;
+  else if (eventType === 'status') {
+  heading = 'Order Status Updated';
+  message = `Your order status has been updated to ${orderStatus}.`;
 
-      if (orderStatus === 'Delivered') {
-        heading = 'Order Delivered';
-        message = 'Your order has been successfully delivered. Thank you for shopping with Vani Systems.';
-      } else if (orderStatus === 'Shipped') {
-        heading = 'Order Shipped';
-        message = 'Your order has been shipped and is on its way.';
-      } else if (orderStatus === 'Out for Delivery') {
-        heading = 'Order Out for Delivery';
-        message = 'Your order is out for delivery and will reach you soon.';
-      } else if (orderStatus === 'Confirmed') {
-        heading = 'Order Confirmed';
-        message = 'Your order has been confirmed.';
-      } else if (orderStatus === 'Processing') {
-        heading = 'Order Processing';
-        message = 'Your order is currently being processed.';
-      }
+  if (orderStatus === 'Delivered') {
+    heading = 'Order Delivered';
+    message = 'Your order has been successfully delivered. Thank you for shopping with Vani Systems.';
+
+  } else if (orderStatus === 'Packed') {
+    heading = 'Order Packed';
+    message = 'Your order has been packed successfully.';
+
+  } else if (orderStatus === 'Ready To Ship') {
+    heading = 'Order Ready To Ship';
+    message = 'Your order is ready to be shipped.';
+
+  } else if (orderStatus === 'Shipped') {
+    heading = 'Order Shipped';
+    message = 'Your order has been shipped and is on its way.';
+
+  } else if (
+    orderStatus === 'Out for Delivery' ||
+    orderStatus === 'Out For Delivery'
+  ) {
+    heading = 'Order Out for Delivery';
+    message = 'Your order is out for delivery and will reach you soon.';
+
+  } else if (orderStatus === 'Confirmed') {
+    heading = 'Order Confirmed';
+    message = 'Your order has been confirmed.';
+
+  } else if (orderStatus === 'Processing') {
+    heading = 'Order Processing';
+    message = 'Your order is currently being processed.';
+  }
+}
 
       subject = `Vani Systems - ${heading} (${orderId})`;
     }
@@ -1273,7 +1289,7 @@ const getOrderById = async (req, res) => {
 
 const updateOrderStatus = async (req, res) => {
   try {
-    const { status, remarks } = req.body;
+    const { status, remarks, adminName } = req.body;
 
     if (!status) {
       return res.status(400).json({
@@ -1282,32 +1298,53 @@ const updateOrderStatus = async (req, res) => {
       });
     }
 
-    const statusMap = {
-      pending: 'Pending',
-      confirmed: 'Confirmed',
-      processing: 'Processing',
-      shipped: 'Shipped',
-      'out for delivery': 'Out for Delivery',
-      outfordelivery: 'Out for Delivery',
-      delivered: 'Delivered',
-      cancelled: 'Cancelled',
-      canceled: 'Cancelled',
-      returned: 'Returned'
-    };
+    // ==========================================
+// ALL ORDER STATUS MAPPING
+// ==========================================
 
-    const finalStatus =
-      statusMap[String(status).toLowerCase().trim()];
+const statusMap = {
+  pending: 'Pending',
+  confirmed: 'Confirmed',
+  processing: 'Processing',
 
-    const allowedStatuses = [
-      'Pending',
-      'Confirmed',
-      'Processing',
-      'Shipped',
-      'Out for Delivery',
-      'Delivered',
-      'Cancelled',
-      'Returned'
-    ];
+  packed: 'Packed',
+
+  'ready to ship': 'Ready To Ship',
+  readytoship: 'Ready To Ship',
+
+  shipped: 'Shipped',
+
+  'out for delivery': 'Out for Delivery',
+  outfordelivery: 'Out for Delivery',
+
+  delivered: 'Delivered',
+  completed: 'Completed',
+
+  cancelled: 'Cancelled',
+  canceled: 'Cancelled',
+
+  returned: 'Returned',
+  refunded: 'Refunded'
+};
+
+// ==========================================
+// ALLOWED ORDER STATUSES
+// ==========================================
+
+const allowedStatuses = [
+  'Pending',
+  'Confirmed',
+  'Processing',
+  'Packed',
+  'Ready To Ship',
+  'Shipped',
+  'Out for Delivery',
+  'Delivered',
+  'Completed',
+  'Cancelled',
+  'Returned',
+  'Refunded'
+];
 
     if (!finalStatus || !allowedStatuses.includes(finalStatus)) {
       return res.status(400).json({
@@ -1336,7 +1373,7 @@ const updateOrderStatus = async (req, res) => {
       status: finalStatus,
       date: new Date().toLocaleString(),
       remarks: remarks || `Order status updated to ${finalStatus}`,
-      adminName: req.user?.name || 'Admin'
+      adminName: adminName || req.user?.name || 'Admin'
     });
 
     if (!order.tracking) {
