@@ -252,24 +252,24 @@ const orderSchema = new mongoose.Schema({
     default: 'Pending'
   },
   status: {
-    type: String,
-    enum: [
-      'Pending',
-      'Confirmed',
-      'Processing',
-      'Packed',
-      'Ready To Ship',
-      'Shipped',
-      'Out for Delivery',
-      'Out For Delivery',
-      'Delivered',
-      'Completed',
-      'Cancelled',
-      'Returned',
-      'Refunded'
-    ],
-    default: 'Pending'
-  },
+  type: String,
+  enum: [
+    'Pending',
+    'Confirmed',
+    'Processing',
+    'Packed',
+    'Ready To Ship',
+    'Shipped',
+    'Out for Delivery',
+    'Delivered',
+    'Completed',
+    'Cancelled',
+    'Returned',
+    'Refunded'
+  ],
+  default: 'Pending'
+},
+ ,
   timeline: [{
     status: String,
     date: String,
