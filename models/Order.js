@@ -269,7 +269,7 @@ const orderSchema = new mongoose.Schema({
   ],
   default: 'Pending'
 },
- ,
+ 
   timeline: [{
     status: String,
     date: String,
