@@ -843,42 +843,41 @@ const sendOrderEmail = async (
     // ORDER STATUS UPDATE
     // ------------------------------------------
 
-  else if (eventType === 'status') {
-  heading = 'Order Status Updated';
-  message = `Your order status has been updated to ${orderStatus}.`;
+    else if (eventType === 'status') {
+      heading = 'Order Status Updated';
+      message = `Your order status has been updated to ${orderStatus}.`;
 
-  if (orderStatus === 'Delivered') {
-    heading = 'Order Delivered';
-    message = 'Your order has been successfully delivered. Thank you for shopping with Vani Systems.';
+      if (orderStatus === 'Delivered') {
+        heading = 'Order Delivered';
+        message = 'Your order has been successfully delivered. Thank you for shopping with Vani Systems.';
 
-  } else if (orderStatus === 'Packed') {
-    heading = 'Order Packed';
-    message = 'Your order has been packed successfully.';
+      } else if (orderStatus === 'Packed') {
+        heading = 'Order Packed';
+        message = 'Your order has been packed successfully.';
 
-  } else if (orderStatus === 'Ready To Ship') {
-    heading = 'Order Ready To Ship';
-    message = 'Your order is ready to be shipped.';
+      } else if (orderStatus === 'Ready To Ship') {
+        heading = 'Order Ready To Ship';
+        message = 'Your order is ready to be shipped.';
 
-  } else if (orderStatus === 'Shipped') {
-    heading = 'Order Shipped';
-    message = 'Your order has been shipped and is on its way.';
+      } else if (orderStatus === 'Shipped') {
+        heading = 'Order Shipped';
+        message = 'Your order has been shipped and is on its way.';
 
-  } else if (
-    orderStatus === 'Out for Delivery' ||
-    orderStatus === 'Out For Delivery'
-  ) {
-    heading = 'Order Out for Delivery';
-    message = 'Your order is out for delivery and will reach you soon.';
+      } else if (
+        orderStatus === 'Out for Delivery' ||
+        orderStatus === 'Out For Delivery'
+      ) {
+        heading = 'Order Out for Delivery';
+        message = 'Your order is out for delivery and will reach you soon.';
 
-  } else if (orderStatus === 'Confirmed') {
-    heading = 'Order Confirmed';
-    message = 'Your order has been confirmed.';
+      } else if (orderStatus === 'Confirmed') {
+        heading = 'Order Confirmed';
+        message = 'Your order has been confirmed.';
 
-  } else if (orderStatus === 'Processing') {
-    heading = 'Order Processing';
-    message = 'Your order is currently being processed.';
-  }
-}
+      } else if (orderStatus === 'Processing') {
+        heading = 'Order Processing';
+        message = 'Your order is currently being processed.';
+      }
 
       subject = `Vani Systems - ${heading} (${orderId})`;
     }
@@ -1289,7 +1288,23 @@ const getOrderById = async (req, res) => {
 
 const updateOrderStatus = async (req, res) => {
   try {
-    const { status, remarks, adminName } = req.body;
+    // Support both string and object request bodies.
+    const requestData = req.body;
+
+    const status =
+      typeof requestData === 'string'
+        ? requestData
+        : requestData?.status;
+
+    const remarks =
+      typeof requestData === 'object' && requestData !== null
+        ? requestData.remarks
+        : undefined;
+
+    const adminName =
+      typeof requestData === 'object' && requestData !== null
+        ? requestData.adminName
+        : undefined;
 
     if (!status) {
       return res.status(400).json({
@@ -1299,52 +1314,56 @@ const updateOrderStatus = async (req, res) => {
     }
 
     // ==========================================
-// ALL ORDER STATUS MAPPING
-// ==========================================
+    // ALL ORDER STATUS MAPPING
+    // ==========================================
 
-const statusMap = {
-  pending: 'Pending',
-  confirmed: 'Confirmed',
-  processing: 'Processing',
+    const statusMap = {
+      pending: 'Pending',
+      confirmed: 'Confirmed',
+      processing: 'Processing',
 
-  packed: 'Packed',
+      packed: 'Packed',
 
-  'ready to ship': 'Ready To Ship',
-  readytoship: 'Ready To Ship',
+      'ready to ship': 'Ready To Ship',
+      readytoship: 'Ready To Ship',
 
-  shipped: 'Shipped',
+      shipped: 'Shipped',
 
-  'out for delivery': 'Out for Delivery',
-  outfordelivery: 'Out for Delivery',
+      'out for delivery': 'Out for Delivery',
+      outfordelivery: 'Out for Delivery',
+      'out for delivery ': 'Out for Delivery',
 
-  delivered: 'Delivered',
-  completed: 'Completed',
+      delivered: 'Delivered',
+      completed: 'Completed',
 
-  cancelled: 'Cancelled',
-  canceled: 'Cancelled',
+      cancelled: 'Cancelled',
+      canceled: 'Cancelled',
 
-  returned: 'Returned',
-  refunded: 'Refunded'
-};
+      returned: 'Returned',
+      refunded: 'Refunded'
+    };
 
-// ==========================================
-// ALLOWED ORDER STATUSES
-// ==========================================
+    // ==========================================
+    // ALLOWED ORDER STATUSES
+    // ==========================================
 
-const allowedStatuses = [
-  'Pending',
-  'Confirmed',
-  'Processing',
-  'Packed',
-  'Ready To Ship',
-  'Shipped',
-  'Out for Delivery',
-  'Delivered',
-  'Completed',
-  'Cancelled',
-  'Returned',
-  'Refunded'
-];
+    const allowedStatuses = [
+      'Pending',
+      'Confirmed',
+      'Processing',
+      'Packed',
+      'Ready To Ship',
+      'Shipped',
+      'Out for Delivery',
+      'Delivered',
+      'Completed',
+      'Cancelled',
+      'Returned',
+      'Refunded'
+    ];
+
+    const finalStatus =
+      statusMap[String(status).toLowerCase().trim()];
 
     if (!finalStatus || !allowedStatuses.includes(finalStatus)) {
       return res.status(400).json({
